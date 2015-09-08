@@ -1,4 +1,5 @@
 require 'harden/util'
+require 'harden/template'
 
 class Harden::Rule
 

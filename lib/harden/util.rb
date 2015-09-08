@@ -11,11 +11,21 @@ module Harden::Util
     false
   end
 
-  def remount(mntpoint)
-    %x[/bin/mount -o remount #{mntpoint}]
+  def bindmount?(mntpoint, target)
+    return false if mountpoint? mntpoint
+    if fstab_entry = mountentry(:fstab, mntpoint)
+      return false unless fstab_entry[0] == target and fstab_entry[3].split(',').include? 'bind'
+    end
+    if proc_entry = mountentry(:proc, mntpoint)
+      return false unless  proc_entry[0] == target and proc_entry[3].split(',').include? 'bind'
+    end
   end
 
-  def mountoptions(mntpoint, where)
+  def remount(mntpoint)
+    execute('/bin/mount', '-o', 'remount', mntpoint)
+  end
+
+  def mountentry(mntpoint, where)
     file = case where
     when :fstab
       '/etc/fstab'
@@ -28,17 +38,26 @@ module Harden::Util
       next if /^\s*$/.match(line)
 
       fields = line.split(/\s+/)
-      path = fields[1]
-      options = fields[3]
-      return options if path == mntpoint
+      return fields if fields[1] == mntpoint
     end
     nil
+  end
+
+  def mountoptions(mntpoint, where)
+    if entry = mountentry(mntpoint, where)
+      entry[3]
+    end
   end
 
   def mountoptions?(mntpoint, option)
     if fstab_options = mountoptions(mntpoint, :fstab) and proc_options = mountoptions(mntpoint, :proc)
       fstab_options.include? option and proc_options.include? option
     end
+  end
+
+  def kernelmodule_loaded?(kernel_module)
+    res, output = execute('/sbin/lsmod')
+    output.lines.find { |l| l.split(/\s+/).first == kernel_module }
   end
 
   def add_mountoptions(mntpoint, option)
@@ -74,5 +93,49 @@ module Harden::Util
         f.puts new_content.join("\n")
       end
     end
+  end
+
+  def execute(*command)
+    unless File.executable? command[0]
+      raise ArgumentError, "Command #{command[0]} is not executable"
+    end
+
+    out, child_out = IO::pipe
+    err, child_err = IO::pipe
+    output = ""
+
+    unless (childpid = fork)
+      out.close
+      err.close
+      $stdout.reopen(child_out)
+      $stderr.reopen(child_err)
+      child_out.close
+      child_err.close
+      ENV['LANG'] = ENV['LC_ALL'] = ENV['LC_MESSAGE'] = ENV['LANGUAGE'] = 'C'
+      exec(*command)
+      exit!
+    end
+
+    child_out.close
+    child_err.close
+    watch = [out,err]
+    while(!watch.empty? and readable = IO.select(watch)[0]) do
+      readable.each do |stream|
+        if stream.eof?
+          stream.close
+          watch.delete(stream)
+        else
+          line = stream.readline
+          if stream == out # capture stdout and eat stderr of child
+            yield line if block_given?
+            output += line
+          end
+        end
+      end
+    end
+
+    out.close unless out.closed?
+    err.close unless out.closed?
+    [ Process.waitpid2(childpid)[1].to_i >> 8, output ]
   end
 end
