@@ -1,7 +1,5 @@
-Harden::Rule.add("cis-1.1.8", :scored => true) do
-  desc "Create Separate Partition for /var/log/audit"
+require 'harden/template/mountpoint'
 
-  check "if /var/log/audit is on a seperate partition" do
-    mountpoint? '/var/log/audit'
-  end
+Harden::Rule.add("cis-1.1.8", :scored => true) do
+  template :mountpoint, :path => '/var/log/audit'
 end

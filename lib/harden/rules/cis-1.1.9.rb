@@ -1,7 +1,5 @@
-Harden::Rule.add('cis-1.1.9', :scored => true) do
-  desc "Create Separate Partition for /home"
+require 'harden/template/mountpoint'
 
-  check "if /home is on a seperate partition" do
-    mountpoint? '/home'
-  end
+Harden::Rule.add('cis-1.1.9', :scored => true) do
+  template :mountpoint, :path => '/home'
 end

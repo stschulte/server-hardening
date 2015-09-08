@@ -1,7 +1,5 @@
-Harden::Rule.add("cis-1.1.1", :scored => true) do
-  desc "Create Separate Partition for /tmp"
+require 'harden/template/mountpoint'
 
-  check "if /tmp is on a seperate partition" do
-    mountpoint? '/tmp'
-  end
+Harden::Rule.add("cis-1.1.1", :scored => true, :reboot => true) do
+  template :mountpoint, :path => '/tmp'
 end
