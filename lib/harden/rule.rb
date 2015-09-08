@@ -37,6 +37,8 @@ class Harden::Rule
   def initialize(name, options = {})
     @name = name
     @scored = options[:scored] || false
+    @dependency_met = true
+    @require_reboot = options[:reboot] || false
   end
 
   def desc(description)
@@ -52,22 +54,52 @@ class Harden::Rule
     @fix_msg = msg
     @fix_code = block
   end
-  
+
+  def precheck(msg = nil, &block)
+    @precheck_msg = msg || "precheck #{name}"
+    @precheck_code = block
+  end
+
+  def depends(&block)
+    @dependency_met = false unless block.call
+  end
+
+  def template(name, options)
+    if template = Harden::Template.template(name) then
+      extend template
+      render(options)
+    end
+  end
+
   def run(autofix = true)
-    print "  \e[34mChecking #{@check_msg}\e[0m "
-    if @check_code.call
-      puts "- \e[32mPASSED\e[0m"
-    else
-      if @fix_code.is_a?(Proc)
-        if autofix
-          puts "- \e[33mAUTOMATIC FIX\e[0m"
-          @fix_code.call
-        else
-          puts "- \e[33mFIX MANUALLY (automatic disabled)\e[0m"
-        end
+    if @precheck_code
+      print "  \e[37mPrecheck #{@precheck_msg}\e[0m "
+      if @precheck_code.call
+        puts "- PASSED"
       else
-        puts "- \e[31mFIX MANUALLY\e[0m"
+        puts "- FAILED"
+        return false
       end
+    end
+
+    print "  \e[34mChecking #{@check_msg}\e[0m "
+    if @dependency_met
+      if @check_code.call
+        puts "- \e[32mPASSED\e[0m"
+      else
+        if @fix_code.is_a?(Proc)
+          if autofix
+            puts "- \e[33mAUTOMATIC FIX\e[0m"
+            @fix_code.call
+          else
+            puts "- \e[33mFIX MANUALLY (automatic disabled)\e[0m"
+          end
+        else
+          puts "- \e[31mFIX MANUALLY\e[0m"
+        end
+      end
+    else
+      puts "-  \e[37mSKIPPED\e[0m"
     end
   end
 
