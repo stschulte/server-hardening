@@ -13,17 +13,24 @@ class Harden::Rule
   end
 
   def self.add(name, options = {}, &block)
-    @collection ||= []
-
     new_rule = new(name, options)
     new_rule.evaluate(&block)
 
-    @collection << new_rule
+    register(name, new_rule)
+  end
+
+  def self.register(name, rule)
+    @collection ||= {}
+    if @collection[name]
+      warn "Rule #{name} is already registered. Ignore this rule"
+    else
+      @collection[name] = rule
+    end
   end
 
   def self.each
-    @collection.sort_by { |r| r.name }.each do |rule|
-      yield rule.name, rule.description, rule
+    @collection.keys.sort_by { |k| k.split(/\.|\-/).map {|t| t.to_i rescue t } }.each do |name|
+      yield name, @collection[name].description, @collection[name]
     end
   end
 
