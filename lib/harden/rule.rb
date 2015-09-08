@@ -46,15 +46,20 @@ class Harden::Rule
     @fix_code = block
   end
   
-  def run
-#    puts "  \e[34mChecking #{@check_msg}\e[0m"
+  def run(autofix = true)
+    print "  \e[34mChecking #{@check_msg}\e[0m "
     if @check_code.call
-      puts "  \e[32mChecking #{@check_msg} PASSED\e[0m"
+      puts "- \e[32mPASSED\e[0m"
     else
-      puts "  \e[37mChecking #{@check_msg} FAILED\e[0m"
-      if @fix_code.is_a? Proc
-        puts "  #{@fix_msg}"
-        @fix_code.call
+      if @fix_code.is_a?(Proc)
+        if autofix
+          puts "- \e[33mAUTOMATIC FIX\e[0m"
+          @fix_code.call
+        else
+          puts "- \e[33mFIX MANUALLY (automatic disabled)\e[0m"
+        end
+      else
+        puts "- \e[31mFIX MANUALLY\e[0m"
       end
     end
   end
