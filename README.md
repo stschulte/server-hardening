@@ -18,6 +18,8 @@ export RUBYLIB=`pwd`/lib
 bin/harden.rb
 ````
 
+![Screencast Demo](https://github.com/stschulte/server-hardening/wiki/screencasts/out-optimized-01.gif)
+
 ## A word about Puppet
 
 I developed this as a stand-alone program but I also plan to use the library
